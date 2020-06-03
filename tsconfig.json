@@ -1,0 +1,20 @@
+/*
+    Configuration for TypeScript Compiler
+    Target: es6
+*/
+
+{
+    "compilerOptions": {
+        "declaration": true,
+        "rootDir": "./src",
+        "outDir": "./dist",
+        "sourceMap": true,
+        "noImplicitAny": true,
+        "module": "commonjs",
+        "target": "es6",
+        "jsx":"react",
+        "resolveJsonModule": true
+    },
+    "include": ["./**/*.ts", "./**/*.tsx"],
+    "exclude": ["./**/*.test.ts", "node_modules"]   
+}

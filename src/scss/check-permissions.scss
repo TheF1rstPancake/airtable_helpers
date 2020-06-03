@@ -1,0 +1,13 @@
+.check-permissions {
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-start;
+	min-height: 100%;
+	position: absolute;
+	left: 0; right: 0;
+	padding: 1vw;
+
+	.title {
+		margin-bottom: 1em;
+	}
+}
