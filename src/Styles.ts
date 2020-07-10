@@ -11,7 +11,9 @@ export enum Colors {
 	orange = '#E03C31',
 	red = '#CF0A3F',
 	merlot = '#960051',
-	pink = '#C6007E'
+	pink = '#C6007E',
+	// Not HSN
+	purple='#7C39ED'
 }
 
 export enum Font {

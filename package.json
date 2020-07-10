@@ -1,18 +1,20 @@
 {
 	"name": "@ouellettec/airtable_helpers",
 	"mode": "development",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "",
 	"main": "dist/index.js",
 	"scripts": {
 		"start": "node ./watcher.config.js",
-		"build": "webpack --display-error-details"
+		"reinstall": "del package-lock.json && npm i",
+		"build": "webpack --display-error-details",
+		"build-production": "webpack -p --display-error-details --config webpack.config.js"
 	},
 	"author": "Christopher Ouellette",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/react": "^16.9.34",
-		"css-loader": "^3.5.3",
+		"css-loader": "^3.6.0",
 		"fs-extra": "^9.0.0",
 		"node-sass": "^4.14.0",
 		"sass-loader": "^8.0.2",
@@ -22,12 +24,11 @@
 		"typescript": "^3.7.5",
 		"webpack": "^4.41.6",
 		"webpack-cli": "^3.3.11",
-		"webpack-dev-server": "^3.10.3"
+		"webpack-dev-server": "^3.10.3",
+		"webpack-node-externals": "^1.7.2"
 	},
 	"dependencies": {
-		"@airtable/blocks": "0.0.45",
-		"@ouellettec/airtable_elements": "file:../package_airtable_elements",
-		"@ouellettec/airtable_remote_connection": "file:../package_airtable_remote_connection",
+		"@airtable/blocks": "0.0.52",
 		"react": "^16.13.1",
 		"react-dom": "^16.13.1"
 	}

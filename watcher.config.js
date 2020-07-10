@@ -1,7 +1,6 @@
 const webpack = require('webpack')
 const config = require('./webpack.config')
 const compiler = webpack(config())
-const exec = require('child_process').exec
 
 
 let displayError = true;
@@ -14,7 +13,7 @@ compiler.watch({
 	watch: true, 
 	poll: false,
 	aggregateTimeout: 1000,
-	ignored: ['./dist/**', 'node_modules/**']
+	ignored: ['./dist/**', './node_modules/**']
 }, (err, stats) => {
 	if(!isStarted) {
 		isStarted = true;
@@ -31,7 +30,7 @@ compiler.watch({
 		displayError = true;
 	}
 
-	const info = stats.toJson();
+    const info = stats.toJson();
 
 	if (stats.hasErrors() && inforErrors) {
 		info.errors.forEach(e => {

@@ -1,15 +1,19 @@
 const path = require('path');
 const webpack = require('webpack');
 const pkg = require('./package.json');
+const nodeExternals = require('webpack-node-externals');
 
 module.exports = function configure() {
 	return {
 		entry: './src/index.ts',
-		mode: pkg.mode,
-		devtool: 'source-map',
+		target: 'node',
+        mode: pkg.mode,
+        entry: './src/index.ts',
+		externals: pkg.mode === 'production' ? [nodeExternals()] : [],
 		resolve: {
-			extensions: ['.ts','.tsx','.js', '.json', '.scss']
-		},
+            modules: [path.resolve(__dirname, 'node_modules')],
+			extensions: ['.ts','.tsx', '.js', '.json', '.scss']
+        },
 		output: {
 			path: path.join(__dirname, './dist'),
 			filename: 'index.js',
@@ -19,11 +23,14 @@ module.exports = function configure() {
 		module: {
 			rules: [{
 				test: /\.ts(x?)$/,
+				include: path.resolve(__dirname, 'src'),
 				exclude: /node_modules/,
-				loader: "ts-loader"
+                loader: "ts-loader"
 			}, {
 				enforce: "pre",
 				test: /\.js$/,
+				include: path.resolve(__dirname, 'src'),
+				exclude: /node_modules/,
 				loader: "source-map-loader"
 			}, {
 				test: /\.scss$/,
@@ -32,6 +39,8 @@ module.exports = function configure() {
 				  'css-loader',
 				  'sass-loader',
 				],
+				include: path.resolve(__dirname, 'src/scss'),
+				exclude: /node_modules/,
 			}]
 		}
 	}
