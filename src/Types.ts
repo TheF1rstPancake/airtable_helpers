@@ -1,6 +1,14 @@
 export * from '@airtable/blocks/models'
 export * from '@airtable/blocks/types'
 
+export interface MappingDefinition {
+	tables: string[]
+	remotes: string[]
+	fields: string[]
+} 
+export interface MappingTables {
+	[index: string]: string
+}
 export interface Mapping {
 	tableId: string
 	fieldId?: string
