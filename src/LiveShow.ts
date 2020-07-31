@@ -1,6 +1,5 @@
-import { RecordData, SelectChoices, GetRecordData, SelectTableAndRecords } from './Blocks'
-import { Mapping, ExtractedMappings, Base } from './Types'
-import { SplitDateTime } from './Utils'
+import { RecordData, SelectChoices } from './Blocks'
+import { Mapping } from './Types'
 
 type SubSpace = {subSpace: string, areas: string[]}
 export type StudioSpace = {space: string, areas?: string[] | SubSpace}
@@ -8,7 +7,7 @@ export type StudioSpace = {space: string, areas?: string[] | SubSpace}
 // A1,3-4 B1-3 O:P1-3 O:C1 C1 D1-3,5-6 IA AB Mez
 
 
-export function SplitStudioSpaces(val: string, studios: string[]): string[] {
+export function splitStudioSpaces(val: string, studios: string[]): string[] {
 	const raw: string[] = []
 	let start: number = null
 	val.split('').forEach((char, index) => {
@@ -88,33 +87,37 @@ function getAreas(area: string, areas: string[]): string[] {
 	}).flat().filter(area => area)
 }
 
-export function SplitGroupedStudioSpaces(grouped: string[], studios: RecordData[], m: ExtractedMappings): StudioSpace[] {
+export function splitGroupedStudioSpaces(
+	grouped: string[],
+	studios: RecordData[]
+): StudioSpace[] {
 	let userStudios: StudioSpace[] = []
 	grouped.map(item => {
 		const s: StudioSpace = {space: ''}
 		if(item.includes(':')) {/** Spaces with Complex Areas */
-			const id = m.workspaceAbbreviation.fieldId
+			//const id = m.workspaceAbbreviation.fieldId
 			const [space, area] = item.split(':')
-			let studio = studios.find(studio => studio.fields[id] && studio.fields[id] === space)
-			if(!studio) studio = studios.find(studio => studio.fields[id] && studio.name === space)
+			let studio = studios.find(studio =>
+				studio.fields.workspaceAbbreviation && studio.fields.workspaceAbbreviation === space
+			)
+			if(!studio) studio = studios.find(studio =>
+				studio.fields.workspaceAbbreviation && studio.name === space
+			)
 			if(!studio) throw new Error(`Could not find space ${space}`)
 			s.space = studio.name
-			const subSpace = area.substring(0,1)
-			const studioSpaces: string[] = studio.fields[m.workspaceAreas.fieldId].split(',')
+			const subSpace = area.substring(0, 1)
+			const studioSpaces: string[] = (studio.fields.workspaceAreas as string).split(',')
 				.filter((area: string) => area.substring(0,1) === subSpace)
 				.map((area: string) => area.substring(1))
 			const areas = getAreas(area.substring(1), studioSpaces)
-			s.areas = {
-				subSpace,
-				areas
-			}
+			s.areas = { subSpace, areas }
 		} else if(!/\d/g.test(item)) {/** Spaces with no Areas */
 			s.space = item
 		} else { // Normal Spaces
 			const space = item.slice(0, 1)
 			const studio = studios.find(studio => studio.name === space)
 			if(!studio) throw new Error(`Cannot find studio ${space}`)
-			const studioAreas: string[] = studio.fields[m.workspaceAreas.fieldId].split(',')
+			const studioAreas: string[] = (studio.fields.workspaceAreas as string).split(',')
 			s.space = space
 			s.areas = getAreas(item.substring(1), studioAreas)
 		}
@@ -123,16 +126,15 @@ export function SplitGroupedStudioSpaces(grouped: string[], studios: RecordData[
 	return userStudios
 }
 
-export function ValidateStudioSpaces(
+export function validateStudioSpaces(
 	userStudios: StudioSpace[],
-	studios: RecordData[],
-	m: ExtractedMappings
+	studios: RecordData[]
 ): boolean {
 	const issues = userStudios.filter(uStudio => {
 		const found = studios.find(studio => studio.name === uStudio.space)
 		if(!found) return true
-		if(found.fields[m.workspaceAreas.fieldId]) {
-			const studioAreas = found.fields[m.workspaceAreas.fieldId].split(',')
+		if(found.fields.workspaceAreas) {
+			const studioAreas = (found.fields.workspaceAreas as string).split(',')
 			if(!uStudio.areas) return false
 			if(Array.isArray(uStudio.areas)) { // Standard areas
 				const uAreas = uStudio.areas as string[]
@@ -149,16 +151,22 @@ export function ValidateStudioSpaces(
 	return issues.length ? false : true
 }
 
-export function GetStudioSpaces(
+export function hasStudioConflicts(studios0: StudioSpace[], studios1: StudioSpace[]): boolean {
+	const conflict = studios0.findIndex((studio0) => {
+		if(studios1.find(studio1 => studio0.space === studio1.space)) return true
+	})
+	return conflict !== -1 ? true : false
+}
+
+export function getStudioSpaces(
 	studios: RecordData[],
-	val: string,
-	mapping: ExtractedMappings
+	val: string
 ): StudioSpace[] {
 	try {
         if(!val) throw new Error('No value passed for Get Studio Space')
-		const spaces: string[] = studios.map(s => s.fields[mapping.workspace.fieldId])
-		const grouped = SplitStudioSpaces(val, spaces)
-		const result = SplitGroupedStudioSpaces(grouped, studios, mapping)
+		const spaces: string[] = studios.map(s => s.fields.workspace as string)
+		const grouped = splitStudioSpaces(val, spaces)
+		const result = splitGroupedStudioSpaces(grouped, studios)
 		return result
 	} catch (error) {
 		console.error(error)
@@ -166,14 +174,13 @@ export function GetStudioSpaces(
 	}
 }
 
-export function GetAndValidateStudioSpaces(
+export function getAndValidateStudioSpaces(
 	studios: RecordData[],
-	val: string,
-	mapping: ExtractedMappings
+	val: string
 ): StudioSpace[] {
 	try {
-		const result = GetStudioSpaces(studios, val, mapping)
-		const valid = ValidateStudioSpaces(result, studios, mapping)
+		const result = getStudioSpaces(studios, val)
+		const valid = validateStudioSpaces(result, studios)
 		if(!valid) throw new Error(`Invalid studio areas`)
 		return result
 	} catch (error) {
@@ -182,26 +189,25 @@ export function GetAndValidateStudioSpaces(
 	}
 }
 
-export async function GetStandardLiveShowSpaces(
-	base: Base,
-	tableId: string,
-	workspaceMappings: ExtractedMappings
-): Promise<string> {
-	const query = await SelectTableAndRecords(base, tableId)
-	const records = GetRecordData(base, query.records, tableId)
-	return records.map(studio => {
-		if(studio.fields[workspaceMappings.isStudioSpace.fieldId]) {
-			const abbrevation = studio.fields[workspaceMappings.workspaceAbbreviation.fieldId]
-			const studioName: string = abbrevation ? abbrevation : studio.fields[workspaceMappings.workspace.fieldId]
-            const areas: string = studio.fields[workspaceMappings.workspaceAreas.fieldId]
-			if(areas && /([A-Za-z])\w+/.test(areas)) { // Complex Sub Spaces
-				let subAreas: string[] = areas.split(',').map(area => area.substring(0, 1))
-				return subAreas.filter((area, index) => subAreas.indexOf(area) === index).map(area => studioName + ':' + area).join(' ')
-			} else {
-				return studioName
-			}
+/** Returns  */
+export function getStandardLiveShowSpacesAsString(
+	records: RecordData[]
+): string {
+	// Only return records with live show studio spaces
+	return records.filter(rec => rec.fields.isStudioSpace).map(studio => {
+		const abbrevation = studio.fields.workspaceAbbreviation as string
+		const workspace = studio.fields.workspace as string
+		const studioName: string = abbrevation ? abbrevation : workspace
+		const areas: string = studio.fields.workspaceAreas as string
+		// Complex Sub Areas are returned [Studio Name] : [Sub Space]
+		if(areas && /([A-Za-z])\w+/.test(areas)) { // Complex Sub Spaces
+			let subAreas = areas.split(',').map(area => area.substring(0, 1))
+			return subAreas.filter((area, index) => subAreas.indexOf(area) === index)
+				.map(area => studioName + ':' + area).join(' ')
+		} else {
+			return studioName
 		}
-	}).filter(studio => studio).sort().join(' ')
+	}).sort().join(' ')
 }
 
 function findStudio(studio0: StudioSpace, studios1: StudioSpace[]): StudioSpace | null {
@@ -333,17 +339,15 @@ export function RemoveAreas(
 export function RemoveStudios(
 	studios0: StudioSpace[],
 	studios1: StudioSpace[],
-	studios: RecordData[],
-	m: ExtractedMappings
+	studios: RecordData[]
 ): StudioSpace[] {
 	const removed: StudioSpace[] = []
 	studios0.forEach(studio0 => {
 		const studio1 = findStudio(studio0, studios1)
 		const rec = studios.find(studio => studio.name === studio0.space)
 		if(!studio1) return
-		const allAreas = rec.fields[m.workspaceAreas.fieldId]
-			? rec.fields[m.workspaceAreas.fieldId].split(',')
-			: []
+		const areas = rec.fields.workspaceAreas as string
+		const allAreas = areas ? areas.split(',') : []
 		const studio = RemoveAreas(studio0, studio1, allAreas)
 		if(studio) removed.push(studio)
 	})
@@ -379,117 +383,119 @@ function getNumberArea(rawArea: string): number {
 // 1 2 3 3b 
 // 1 3 4 5
 
-function StringifyAreas(area: string, current: number, previous: number, acc: string[]) {
-	/** @TODO Improve this */
-	const length = acc.length
-	if(previous + 1 < current ) {
-		acc.push(',')
-		acc.push(area)
-	} else {
-		if(acc[length - 1] !== '-') {
-			if(acc[length - 2] !== '-') {
-				acc.push('-')
-				acc.push(area)
+function stringifyArea(
+	area: string,
+	self: string[],
+	allAreas: string[]
+): string {
+	const previousArea = self[self.indexOf(area.toString()) - 1]
+	const startingIndex = allAreas.findIndex(a => a === previousArea)
+	const endingIndex = allAreas.findIndex(a => a === area)
+	const diff = endingIndex - startingIndex
+	return diff > 1 ? ',' : '-'
+	
+}
+/** Compresses studio areas, Ex: 1,2,3 will read 1-3 */
+function stringifyNormalAreas(areas: string[], allAreas: string[]): string {
+	return areas.reduce((acc, area) => {
+		if(!acc.length) { acc.push(area) }// Add first area
+		else {
+			const seperator = stringifyArea(area, areas, allAreas) // Returns , or -
+			const previousSeperator = acc[acc.length - 2]
+			// Same seperators means the areas can be combined
+			if(seperator === '-' && previousSeperator === seperator) {
+				acc.splice(acc.length - 1, 1, area)
 			} else {
-				acc[length - 1] = area
+				acc.push(seperator, area)
 			}
-		} else {
-			acc[length - 1] = area
 		}
-	}
+		return acc
+	}, [] as string[]).join('')
 }
 
-export function StringifyStudios(studios: StudioSpace[]): string {
-	return studios.map(studio => {
+function stringifyComplexAreas(
+	subSpace: SubSpace,
+	subSpaceRecord: RecordData
+) {
+	const areas = subSpace.areas
+	const allAreas = (subSpaceRecord.fields.workspaceAreas as string).split(',')
+		.filter(area => area.includes(subSpace.subSpace)) // Filter all other subspaces out
+		.map(area => area.substring(1)) // Remore sub space letter ( P1 => 1 )
+	return stringifyNormalAreas(areas, allAreas)
+}
+
+
+export function stringifyStudios(studios: StudioSpace[], allStudioRecords: RecordData[]): string {
+	/** Filter off air studios */
+	const studioRecords = allStudioRecords.filter(rec => rec.fields.isStudioSpace)
+	return studios.map((studio, i) => {
+		/** No area means the entire studio is open */
 		if(!studio.areas) return studio.space
-		if(Array.isArray(studio.areas)) {
-			const areas = studio.areas as string[]
-			/** Compresses studio areas, Ex: 1,2,3 will read 1-3 */
-			return studio.space + areas.reduce((acc, area, index) => {
-				if(!acc.length) {
-					acc.push(area)
-				} else {
-					const current = getNumberArea(area)
-					const found = [...acc].reverse().find(area => area !== ',' && area !== '-')
-					const prev = getNumberArea(found)
-					StringifyAreas(area, current, prev, acc)
-				}
-				return acc
-			}, [] as string[]).join('')
-		} else {
+		/** Get all Studio Record */
+		const studioRecord = studioRecords.find(rec => rec.fields.workspace === studio.space)
+		if(Array.isArray(studio.areas)) { // Normal Area
+			const allAreas = (studioRecord.fields.workspaceAreas as string).split(',')
+			const compressedAreas = stringifyNormalAreas(studio.areas as string[], allAreas)
+			return studio.space + compressedAreas
+		} else { // Complex area
+			const space = studio.space.substring(0,1)
 			const subSpace = studio.areas as SubSpace
-			/** @TODO use abbreviation instead of first letter of subspace */
-			return studio.space.substring(0,1) + ':' + subSpace.subSpace + subSpace.areas.reduce((acc, area, index) => {
-				if(!acc.length) {
-					acc.push(area)
-				} else {
-					const current = getNumberArea(area)
-					const found = [...acc].reverse().find(area => area !== ',' && area !== '-')
-					const prev = getNumberArea(found)
-					StringifyAreas(area, current, prev, acc)
-				}
-				return acc
-			}, [] as string[]).join('')
+			const label = space + ':' + subSpace.subSpace
+			if(!subSpace.areas.length) return label
+			const compressedAreas = stringifyComplexAreas(subSpace, studioRecord)
+			return label + compressedAreas
 		}
 	}).join(' ')
 }
 
-export function HasStudioConflicts(studios0: StudioSpace[], studios1: StudioSpace[]): boolean {
-	const conflict = studios0.findIndex((studio0) => {
-		if(studios1.find(studio1 => studio0.space === studio1.space)) return true
-	})
-	return conflict !== -1 ? true : false
-}
 
 
-export function GroupStudioSpaces(record: RecordData, mappings: Mapping[]) {
-	const invalid = ['studioUsed']
-	const items = mappings.filter(map => map.fieldName.toLowerCase().includes('studio') && !invalid.includes(map.fieldName))
-		.map(map => ({id: map.fieldId, name: map.fieldName}))
-		.filter(map => record.fields[map.id] !== null)
-	const grouped = items.map(item => {
-		const space = item.name.toLowerCase().replace('studio', '')
-		const areas: string = record.fields[item.id].map((area: SelectChoices) => area.name).join(',')
-		return space.substring(0,1).toUpperCase() + space.substring(1) + areas
-	})
-	return grouped.join(' ')
-}
+
+// export function groupStudioSpaces(record: RecordData, mappings: Mapping[]) {
+// 	const invalid = ['studioUsed']
+// 	const items = mappings.filter(map => map.fieldName.toLowerCase().includes('studio') && !invalid.includes(map.fieldName))
+// 		.map(map => ({id: map.fieldId, name: map.fieldName}))
+// 		.filter(map => record.fields[map.id] !== null)
+// 	const grouped = items.map(item => {
+// 		const space = item.name.toLowerCase().replace('studio', '')
+// 		const areas: string = (record.fields[item.id] as SelectChoices[])
+// 			.map((area: SelectChoices) => area.name).join(',')
+// 		return space.substring(0,1).toUpperCase() + space.substring(1) + areas
+// 	})
+// 	return grouped.join(' ')
+// }
 
 
-export function FindConflicts(
-	events: RecordData[],
-	mappings: {
-		startDate: string
-		endDate?: string
-	},
-	event: {
-		startDate: number
-		startTime: number
-		endDate?: number
-		endTime?: number
-	}
-): RecordData[] {
-	if(!events.length) return []
-	return events.filter(evt => {
-		const [startDate, startTime] = SplitDateTime(evt.fields[mappings.startDate])
-		const [endDate, endTime] = mappings.endDate ? SplitDateTime(evt.fields[mappings.endDate]) : [ null, null ]
-		// Current Day is Event Start Date
-		if(startDate === event.startDate) {
-			// Current Day is also Event End Date
-			if(event.endDate && endDate === event.endDate) {
-				// Start is after end or end is before event start
-				if(event.startTime > endTime || event.endTime < startTime) return false
-			} else if(startTime > event.startTime) { // Event starts after current time
-				return false
-			} else if(endTime < event.startTime) {
-				return false
-			}
-		}
-		if(event.endDate && event.endDate === endDate) {
-			// Ends on the same day it started and current starts after events ends
-			if(event.startDate === endDate && event.startTime > endTime) return false
-        }
-        if(startDate !== event.startDate && (!event.endDate || event.endDate !== endDate)) return false
-		return true
-	})
-}
+// export function FindConflicts(
+// 	events: RecordData[],
+// 	event: {
+// 		startDate: number
+// 		startTime: number
+// 		endDate?: number
+// 		endTime?: number
+// 	}
+// ): RecordData[] {
+// 	if(!events.length) return []
+// 	return events.filter(evt => {
+// 		const [startDate, startTime] = SplitDateTime(evt.fields.startDate as string)
+// 		const [endDate, endTime] = evt.fields.endDate ? SplitDateTime(evt.fields.endDate as string) : [ null, null ]
+// 		// Current Day is Event Start Date
+// 		if(startDate === event.startDate) {
+// 			// Current Day is also Event End Date
+// 			if(event.endDate && endDate === event.endDate) {
+// 				// Start is after end or end is before event start
+// 				if(event.startTime > endTime || event.endTime < startTime) return false
+// 			} else if(startTime > event.startTime) { // Event starts after current time
+// 				return false
+// 			} else if(endTime < event.startTime) {
+// 				return false
+// 			}
+// 		}
+// 		if(event.endDate && event.endDate === endDate) {
+// 			// Ends on the same day it started and current starts after events ends
+// 			if(event.startDate === endDate && event.startTime > endTime) return false
+//         }
+//         if(startDate !== event.startDate && (!event.endDate || event.endDate !== endDate)) return false
+// 		return true
+// 	})
+// }
