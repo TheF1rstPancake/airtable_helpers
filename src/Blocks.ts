@@ -1,140 +1,27 @@
 import { Table, Record, TableOrViewQueryResult, View, Field, Base} from '@airtable/blocks/models';
 import { FieldType } from '@airtable/blocks/models';
-import { Mappings, Mapping } from './Types'
-import { CorrectTime, GetFormattedDate, GetFormattedTime, GetInputTimeFormat, GetInputDateFormat } from './Utils';
-import { CollaboratorData, ExtractedMappings } from './Types';
+import {
+	Mappings,
+	Mapping,
+	QuerySorts,
+	CollaboratorData,
+	RecordField,
+	UpdateRecord,
+	SelectWriteOption,
+	CustomField,
+	RecordData,
+	RemoteData,
+	TypedData
+} from './Types'
+import {
+	GetFormattedDate,
+	GetFormattedTime,
+	GetInputTimeFormat,
+	GetInputDateFormat,
+	GetFormattedDateTime
+} from './Utils';
+import { GetFieldsInTable, ConvertExtractedMappings } from './Mappings';
 
-export interface SelectChoices {
-	id: string
-	name: string
-	color: string
-}
-
-export interface SelectWriteOption {
-	id?: string
-	name?: string
-}
-
-export interface QuerySorts {
-	field: string
-	direction?: 'asc' | 'desc'
-}
-
-interface NewRecord {fields: {[index: string]: any}}
-
-type CustomField = string | string[] | number | boolean | Date | SelectWriteOption | SelectWriteOption[]
-export interface RecordField {
-	[index: string]: CustomField
-}
-export interface UpdateRecord {
-	id: string, 
-	fields: RecordField
-}
-
-export interface RecordData {
-	id: string
-	name: string
-	tableId: string
-	fields: RecordField
-}
-
-export interface RemoteData {
-	id: string
-	tableId: string,
-	fields: RecordField
-	dateCreates?: string
-}
-
-function formatKey(key: string) {
-	return key.split('-').map((word, i) => i !== 0 
-		? word.substring(0,1).toUpperCase() + word.substring(1) 
-		: word
-	).join('')
-}
-
-export function GetMapping(tableId: string, fieldName: string, mappings: Mappings): Mapping {
-	const types = mappings.find(map => Object.keys(map).find(k => k === fieldName))
-	if(!types) throw new Error(`Table id ${tableId} does not have field ${fieldName}`)
-	return types[Object.keys(types)[0]].find(t => t.tableId === tableId)
-}
-
-export function GetMappings(tableId: string, fieldName: string[], mappings: Mappings) {
-	return fieldName.map(field => {
-		const mapping = GetMapping(tableId, field, mappings)
-		return {
-			...mapping,
-			refName: formatKey(field)
-		}
-	})
-}
-
-export function GetMappingFieldId(tableId: string, fieldName: string, mappings: Mappings) {
-	return GetMapping(tableId, fieldName, mappings).fieldId
-}
-
-export function GetMappingFieldIds(tableId: string, fieldNames: string[], mapping: Mappings) {
-	return GetMappings(tableId, fieldNames, mapping).map(map => map.fieldId)
-}
-
-export function ExtractMappings(mappings: Mapping[]) {
-	return mappings.reduce<{[index: string]: Mapping}>((acc, map) => {
-		let name = map.refName ? map.refName : map.fieldName
-		if(name.includes('-')) {
-			name = formatKey(name)
-		}
-		acc[name] = map
-		return acc
-	}, {})
-}
-
-export function GetExtractedMappings(
-	tableId: string,
-	mappings: Mappings,
-	fields?: string[]
-): {[index: string]: Mapping} {
-	const mappingInTable = GetFieldsInTable(tableId, mappings)
-	const extracted = ExtractMappings(mappingInTable)
-	const valid = Object.entries(extracted).filter(([key, map]) => {
-		if(!fields || fields.includes(key)) return true
-		return false
-	})
-	return Object.fromEntries(valid)
-}
-
-export function ConvertExtractedMappings(mappings: ExtractedMappings): Mapping[] {
-	return Object.values(mappings)
-}
-
-/** @TODO Add option to use regular or extracted options */
-export function GetFieldIds(
-	tableId: string,
-	mappings: Mappings,
-    fields?: string[]
-): string[] {
-    if(!tableId) throw new Error('No table ID')
-	const mappingInTable = GetFieldsInTable(tableId, mappings)
-	const extracted = ExtractMappings(mappingInTable)
-	return Object.entries(extracted).filter(([key, map]) => {
-		if(!fields || fields.includes(key)) return true
-		return false
-	}).map(([key, map]) => map.fieldId)
-}
-
-export function GetFieldsInTable(tableId: string, mappings: Mappings): Mapping[] {
-    const validTable = mappings[0][Object.keys(mappings[0])[0]].findIndex(map => map.tableId === tableId)
-    if(validTable === -1) throw new Error(`Invalid table id ${tableId}`)
-	return mappings.map(map => {
-		let hasTable: Mapping[] = []
-		Object.keys(map).forEach(k => {
-			const item = map[k].find(item => item.tableId === tableId && item.fieldId)
-			if(item) {
-				item.refName = formatKey(k)
-				hasTable.push(item)
-			}
-		})
-		return hasTable
-	}).flat()
-}
 
 export function SelectTable(base: Base, id: string): Table {
 	return base.getTableByIdIfExists(id);
@@ -142,7 +29,7 @@ export function SelectTable(base: Base, id: string): Table {
 
 export function SelectView(base: Base, tableId: string, id: string): View {
 	const table = SelectTable(base, tableId)
-	return table.getViewById(id);
+	return table.getViewByIdIfExists(id);
 }
 
 export function SelectField(base: Base, tableId: string, id: string): Field {
@@ -192,11 +79,14 @@ export function UnloadQuery(query: TableOrViewQueryResult) {
 }
 
 
-async function ThrottleTableUsage(records: string[] | NewRecord[], func: any): Promise<string[]> {
+async function ThrottleTableUsage(
+	records: string[] | {fields: RecordField}[] | UpdateRecord[],
+	func: (records: string[] | { fields: RecordField }[] | UpdateRecord[]) => Promise<string[] | void>
+): Promise<string[]> {
 	let results: string[] = [];
 	while(records.length > 0) {
-        const round = records.slice(0, 50)
-		let r = await func(round) as string[]
+		const round = records.slice(0, 50)
+		let r = await func(round) as string[] | void
 		if(r) results = [...results, ...r]
         records.splice(0, 50)
 	}
@@ -205,11 +95,21 @@ async function ThrottleTableUsage(records: string[] | NewRecord[], func: any): P
 
 export function CreateRecords(
 	base: Base, 
-	records: NewRecord[],
+	records: {fields: RecordField}[],
 	tableId: string
 ): Promise<string[]> {
 	const table = SelectTable(base, tableId);
-	return ThrottleTableUsage(records, (r: NewRecord[]) => table.createRecordsAsync(r))
+	return ThrottleTableUsage(records, (r: {fields: RecordField}[]) => table.createRecordsAsync(r))
+		.then(ids => [].concat.apply([], ids));
+}
+
+export function UpdateRecords(
+	base: Base,
+	tableId: string,
+	updates: UpdateRecord[]
+): Promise<void> {
+	const table = SelectTable(base, tableId);
+	return ThrottleTableUsage(updates, (r: UpdateRecord[]) => table.updateRecordsAsync(r))
 		.then(ids => [].concat.apply([], ids));
 }
 
@@ -218,6 +118,58 @@ export function RemoveRecords(base: Base, recordsIds: string[], tableId: string)
 	return ThrottleTableUsage(recordsIds, (r: string[]) => table.deleteRecordsAsync(r))
 }
 
+/** Validates and returns a value for a string field */
+function handleString(
+	value: string | unknown,
+): string {
+	if(typeof value === 'string') return value ? value : ''
+	if(value.toString) return value.toString()
+	return String(value)
+}
+
+/** Validates and returns a value for a Date / DateTime field type */
+function handleDateTime(value: Date | string, includesTime: boolean): string {
+	/** Date Time Fields */
+	if(includesTime) {
+		if(typeof value === 'string' && value.includes(' ')) { // User entered date time
+			const [date, time] = value.split(' ')
+			value = new Date(GetInputDateFormat(date) + ' ' + GetInputTimeFormat(time, { military: true }))
+		} else { // Pre-formated date time
+			value = new Date(value)
+		}
+	} else {
+		 if(typeof value === 'string') value = new Date(GetInputDateFormat(value) + ' 00:00:00')
+	}
+	if(isNaN(Number(value.getTime()))) throw new Error('Invalid Date format: ' + value)
+	return includesTime 
+		? GetFormattedDateTime(value as Date)
+		: GetInputDateFormat(value, { withoutOffset: true })
+}
+
+/** Validates and returns a value for a select field type */
+function handleSelects(
+	value: string | string[] | SelectWriteOption | SelectWriteOption[],
+	multi: boolean,
+	opts?: { useId?: boolean }
+): SelectWriteOption | SelectWriteOption[] {
+	if(!multi && Array.isArray(value)) throw new Error(`Single Selects can not be arrays`)
+	if(multi && !Array.isArray(value)) throw new Error(`Multi Selects must be an array with either an ID or Name`)
+	if(multi) {
+		value = value as string[] | SelectWriteOption[]
+		if(typeof value[0] === 'string') { // List of String
+			return (value as string[]).filter(val => val).map(val => ({ name: val }))
+		} else {
+			return (value as SelectWriteOption[])
+				.filter(val => val && (val.name || val.id))
+				.map(r => r.id ? { id: r.id } : { name: r.name } )
+		}
+	} else {
+		return typeof value === 'string'
+			? { name: value as string }
+			: { name: (value as SelectWriteOption).name }
+		
+	}
+}
 
 export function BuildNewRecord (
 	field: RecordField | Record,
@@ -229,9 +181,7 @@ export function BuildNewRecord (
 ): RecordField {
 	let fields0: RecordField
 	if(field instanceof Record) {
-		mappings.forEach(map => {
-			fields0[map.fieldName] = field.getCellValue(map.fieldId)
-		})
+		mappings.forEach(map => fields0[map.fieldName] = field.getCellValue(map.fieldId))
 	} else {
 		fields0 = field
 	}
@@ -240,11 +190,10 @@ export function BuildNewRecord (
 		/** Builds an object with the key being the field id and value the cell value */
 		newRecord = mappings.reduce<RecordField>((acc, map) => {
 			let key: string, value: CustomField
-			if(options && options.useFieldId) {
-				key = map.fieldId
-			} else {
-				key = map.refName ? map.refName : map.fieldName
-			}
+			key = options && options.useFieldId
+				? map.fieldId
+				: map.refName ? map.refName : map.fieldName
+			/** Check  for empty values */
 			if(fields0[key] === null || fields0[key] === undefined) {
 				if(map.fieldType == FieldType.CREATED_TIME) return acc
 				if(!options || !options.noNull) acc[map.fieldId] = null
@@ -257,8 +206,7 @@ export function BuildNewRecord (
 				case FieldType.SINGLE_LINE_TEXT:
 				case FieldType.PHONE_NUMBER:
 				case FieldType.RICH_TEXT:
-					value = fields0[key] as string
-					acc[map.fieldId] = value.length ? String(value) : ''
+					acc[map.fieldId] = handleString(fields0[key] as string)
 					break
 				case FieldType.NUMBER:
 					acc[map.fieldId] = Number(fields0[key])
@@ -266,26 +214,19 @@ export function BuildNewRecord (
 				case FieldType.CHECKBOX:
 					if(typeof fields0[key] === 'string') {
 						acc[map.fieldId] = fields0[key] === 'checked' ? true : false
-					} else {
+					} else if(typeof fields0[key] === 'boolean') {
 						acc[map.fieldId] = fields0[key]
+					} else {
+						throw new Error(`Invalid checkbox value: ${fields0[key]} for ${map.refName}`)
 					}
 					break
 				case FieldType.DATE:
-					value = fields0[key] as string | number
-					if(isNaN(Number(new Date(value).getTime()))) throw new Error('Invalid Date format: ' + value)
-					acc[map.fieldId] = new Date(value)
+					value = fields0[key] as string
+					acc[map.fieldId] = handleDateTime(value, false)
 					break
 				case FieldType.DATE_TIME:
-					value = fields0[key] as Date
-					if(!value.getTime) {
-						value = fields0[key] as string
-						const [date, time] = value.split(' ')
-						const resolvedTime = GetInputTimeFormat(time, { military: true })
-						fields0[key] = GetInputDateFormat(date) + ' ' + resolvedTime
-						value = new Date(fields0[key] as string)
-					}
-					if(isNaN(Number(value.getTime()))) throw new Error('Invalid Date format: ' + value)
-					acc[map.fieldId] = fields0[key]
+					value = fields0[key] as string | Date
+					acc[map.fieldId] = handleDateTime(value, true)
 					break
 				case FieldType.MULTIPLE_RECORD_LINKS:
 					if(!Array.isArray(fields0[key])) throw new Error(key + ' is required to be an array')
@@ -299,33 +240,12 @@ export function BuildNewRecord (
 					}
 					break
 				case FieldType.SINGLE_SELECT:
-					if(fields0[key] === null) {
-						acc[map.fieldId] = null
-					} else {
-						if(Array.isArray(fields0[key])) {
-							value = fields0[key] as SelectWriteOption[]
-							acc[map.fieldId] = value[0]
-						} else {
-							acc[map.fieldId] = fields0[key]
-						}
-					}
+					value = fields0[key] as string
+					acc[map.fieldId] = handleSelects(value, false)
 					break
 				case FieldType.MULTIPLE_SELECTS:
-					if(!Array.isArray(fields0[key])) throw new Error('Multi Select Key: ' + key + ' is required to be an array')
 					value = fields0[key] as string[] | SelectWriteOption[]
-					if(typeof value[0] === 'string') {
-						value = fields0[key] as string[]
-						acc[map.fieldId] = value.map(r => {
-							if(r === null) return null
-							return {name: r}
-						})
-					} else {
-						value = fields0[key] as SelectWriteOption[]
-						acc[map.fieldId] = value.map(r => {
-							if(r === null) return null
-							return {name: r.name}
-						})
-					}
+					acc[map.fieldId] = handleSelects(value, true)
 					break
 				case FieldType.CREATED_TIME: // Acceptions
 					break
@@ -352,15 +272,21 @@ export function BuildNewRecords(
 	return fields.map(field => BuildNewRecord(field, mappings, options))
 }
 
-export function ConvertRecordMappings (wantedTable: string, record: RecordField, mappings: Mappings): RecordField {
-    const newRecord: RecordField = {}
+export function ConvertRecordMappings(
+	wantedTable: string,
+	record: RecordField,
+	mappings: Mappings,
+	opts?: { isFieldId?: boolean }
+): RecordField {
+	const newRecord: RecordField = {}
+	const key = opts && opts.isFieldId ? 'fieldId' : 'refName'
     if(!record) throw new Error('Cannot convert mappings. No record present')
 	Object.entries(record).forEach(([fieldKey, fieldValue]) => {
 		/** Get mapping group */
 		let mapping: Mapping[] = []
 		mappings.forEach(allMappings => {
 			const k = Object.keys(allMappings).find(k => 
-				allMappings[k].find(map => map.fieldId === fieldKey)
+				allMappings[k].find(map => map[key] === fieldKey)
 			)
 			if(k) mapping.push(...allMappings[k])
 		})
@@ -370,14 +296,6 @@ export function ConvertRecordMappings (wantedTable: string, record: RecordField,
 	})
 	return newRecord
 }
-
-export function UpdateRecords(base: Base, tableId: string, updates: UpdateRecord[]): Promise<void> {
-	const table = SelectTable(base, tableId);
-	return ThrottleTableUsage(updates, (r: UpdateRecord[]) => table.updateRecordsAsync(r))
-		.then(ids => [].concat.apply([], ids));
-}
-
-
 
 export function GetRecordData(
 	base: Base,
@@ -421,7 +339,9 @@ export function GetRecordData(
 	})
 }
 
-export function GetNamedRecordData(
+
+
+export function GetNamedRecordData<T>(
 	tableId: string,
 	records: Record[],
 	mappings: Mappings,
@@ -430,37 +350,38 @@ export function GetNamedRecordData(
 		useIds?: boolean,
 		ignoreLinkedFields?: boolean
 	}
-): RecordData[] {
+): {id: string, name: string, tableId: string, fields: T}[] {
 	const key = opts && opts.useIds ? 'fieldId' : 'refName'
 	if(!fields || !fields.length) fields = GetFieldsInTable(tableId, mappings)
 	return records.map(rec => {
-		const fieldValues: {[index: string]: string | number | boolean | SelectChoices[] | null} = {}
+		if(rec.isDeleted) throw new Error(`Cannot get record data for deleted record ${rec.name} : ${rec.id}`)
+		const fieldValues: any = {}
 		fields.forEach(f => {
-			let value = rec.getCellValue(f.fieldId) as any
-			if(value === null) {
-				fieldValues[f[key]] = null
-			} else if(Array.isArray(value)) {
-				fieldValues[f[key]] = Array.from(value)
-			} else if(value.id) {
-				fieldValues[f[key]] = [value]
-			} else if(typeof value === 'boolean') {
-				fieldValues[f[key]] = value
-			} else if(!isNaN(Number(value))) {
-				fieldValues[f[key]] = Number(rec.getCellValueAsString(f.fieldId))
-			} else {
-                if(/[*#\\]/g.test(value)) { // String Includes special characters
-                    fieldValues[f[key]] = value
-                } else {
-                    fieldValues[f[key]] = rec.getCellValueAsString(f.fieldId)
-                }
+			let value = rec.getCellValue(f.fieldId) as unknown
+			if(value === null || value === undefined) return fieldValues[f[key]] = null
+			switch(f.fieldType) {
+				case FieldType.NUMBER:
+					fieldValues[f[key]] = !isNaN(Number(value)) ? value as number : Number(value)
+					break
+				case FieldType.RICH_TEXT:
+					fieldValues[f[key]] = value
+					break
+				case FieldType.CHECKBOX:
+					fieldValues[f[key]] = value
+					break
+				case FieldType.SINGLE_SELECT:
+					fieldValues[f[key]] = value
+					break
+				case FieldType.MULTIPLE_RECORD_LINKS:
+				case FieldType.MULTIPLE_SELECTS:
+					fieldValues[f[key]] = Array.isArray(value) ? value : [ value ]
+					break
+				default:
+					fieldValues[f[key]] = rec.getCellValueAsString(f.fieldId)
+					break
 			}
 		})
-		return {
-			id: rec.id,
-			name: rec.name,
-			tableId,
-			fields: fieldValues
-		}
+		return { id: rec.id, name: rec.name, tableId, fields: fieldValues }
 	})
 }
 
@@ -504,9 +425,12 @@ export function GetRemoteRecordData(
 	})
 }
 
-export function GroupByProp(records: RecordData[], prop: string): {[index: string]: RecordData[]} {
-	const group: {[index: string]: RecordData[]} = {};
-	if(!records || !records.length) return group;
+export function GroupByProp<T extends RecordField>(
+	records: TypedData<T>[],
+	prop: string
+): {[index: string]: TypedData<T>[]} {
+	const group: {[index: string]: TypedData<T>[]} = {}
+	if(!records || !records.length) return group
 	records.forEach(r => {
 		const type = Object.keys(r.fields).find(f => f === prop)
 		if(!type) throw new Error(`Invalid prop ${prop} for record ${r.name}`)

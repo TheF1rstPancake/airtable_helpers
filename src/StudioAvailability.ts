@@ -17,8 +17,8 @@ export function UpdateComments(
 		} else if(start == 0) {
             c = ''
         }
-    }
-	if(message) c += `${title} - ${message}\n`
+	}
+	if(message) c += `${title} - ${message}${avoid}`
 	return c
 }
 

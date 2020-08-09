@@ -1,18 +1,18 @@
 /** YEARLY Date Functions */
 
-export function GetInputDateFormat(d: string | Date): string {
+export function GetInputDateFormat(d: string | Date, opt?: { withoutOffset?: boolean }): string {
 	if(typeof d === 'string') {
 		d = new Date(d)
-		d = new Date(d.getTime() + d.getTimezoneOffset() * 60000)
+		if(!opt || opt.withoutOffset) d = new Date(d.getTime() + d.getTimezoneOffset() * 60000)
 	}
 	return d.getFullYear() + '-' 
-		+ (d.getMonth() < 10 ? '0' + (d.getMonth() + 1) : d.getMonth() + 1) + '-' 
+		+ (d.getMonth() + 1 < 10 ? '0' + (d.getMonth() + 1) : d.getMonth() + 1) + '-' 
 		+ (d.getDate() < 10 ? '0' + d.getDate() : d.getDate())
 }
 
 export function FindQuarterEnd(year: number, start: Date): Date {
-	const month = start.getMonth() + 3 > 12 
-		? start.getMonth() + 3 - 12 
+	const month = start.getMonth() + 3 > 12
+		? start.getMonth() + 3 - 12
 		: start.getMonth() + 3;
 	let lastSunday = new Date(year, month, start.getDate());
 	return FindNearestDay(lastSunday, 6, 2);
@@ -46,31 +46,47 @@ export function FindDay(d: Date, day: number, direction: boolean) {
 	return d;
 }
 
-export function GetQuarterDates(q: number, opts?: { currentYear: boolean }): [string, string] {
-	const date = new Date();
-	let startDate: string, endDate: string;
-	if(q === 1) {
-		const year: number = (date.getMonth() < 3 || (opts && opts.currentYear)) 
-			? date.getFullYear() 
-			: date.getFullYear() + 1;
-		const firstSunday: Date = FindNearestDay(new Date(year, 0, 1), 0);
-		const lastSunday = FindQuarterEnd(year, firstSunday);
-		startDate =	GetInputDateFormat(firstSunday);
-		endDate = GetInputDateFormat(lastSunday);
-	} else {
-		const mult = (q - 1) * 3;
-		const year: number = Math.floor(date.getMonth() / 3) < q 
-			? date.getFullYear() 
-			: date.getFullYear() + 1;
-		const firstSunday: Date = FindNearestDay(new Date(year, 0, 1), 0, 3);
-		let month = mult + firstSunday.getMonth() + 1;
-		if(month > 12) month = month - 12;
-		const quarterStart = FindNearestDay(new Date(year, month, firstSunday.getDay()), 0, 3);
-		const lastSunday = FindQuarterEnd(year, quarterStart);
-		startDate =	GetInputDateFormat(quarterStart);
-		endDate = GetInputDateFormat(lastSunday);
+export function GetQuarterDates(
+	q: number,
+	opts?: {
+		currentYear?: boolean
+		year?: number
 	}
-	return [startDate, endDate];
+): [string, string] {
+	const today = new Date()
+	let startDate: string, endDate: string
+	if(q === 1) {
+		let year: number
+		if(opts && opts.year) {
+			year = opts.year
+		} else {
+			year = (today.getMonth() < 3 || (opts && opts.currentYear)) 
+				? today.getFullYear()
+				: today.getFullYear() + 1
+		}
+		const firstSunday: Date = FindNearestDay(new Date(year, 0, 1), 0)
+		const lastSunday = FindQuarterEnd(year, firstSunday)
+		startDate =	GetInputDateFormat(firstSunday)
+		endDate = GetInputDateFormat(lastSunday)
+	} else {
+		const mult = (q - 1) * 3
+		let year: number
+		if(opts && opts.year) {
+			year = opts.year
+		} else {
+			year = Math.floor(today.getMonth() / 3) < q
+				? today.getFullYear() 
+				: today.getFullYear() + 1
+		}
+		const firstSunday: Date = FindNearestDay(new Date(year, 0, 1), 0, 3)
+		let month = mult + firstSunday.getMonth() + 1
+		if(month > 12) month = month - 12
+		const quarterStart = FindNearestDay(new Date(year, month, firstSunday.getDay()), 0, 3)
+		const lastSunday = FindQuarterEnd(year, quarterStart)
+		startDate =	GetInputDateFormat(quarterStart)
+		endDate = GetInputDateFormat(lastSunday)
+	}
+	return [startDate, endDate]
 }
 
 export function GetFormattedDate(date?: Date): string {
@@ -98,7 +114,21 @@ export interface ResolvedTime {
 	AM: boolean
 }
 
-export function CorrectTime(time: string, options?: CorrectTimeOptions): ResolvedTime {
+export function getTime(value: string | number, isDate: boolean): number {
+	if(isDate) {
+		return typeof value === 'string'
+			? new Date(value + ' 00:00:00').getTime()
+			: new Date(value).getTime()
+	} else if(typeof value === 'string') {
+		const resolvedTime = CorrectTime(value)
+		return Number(resolvedTime.hour) + (Number(resolvedTime.minute) / 60)
+	}
+}
+
+export function CorrectTime(
+	time: string, 
+	options?: CorrectTimeOptions
+): ResolvedTime {
 	let hour: number, minute: number, AM: boolean;
 	time = time.toLowerCase()
 	if(time.includes(':')) {
@@ -146,6 +176,18 @@ export function CorrectSplitRange(split: string): ResolvedTime[][] {
 	return range.map(r => CorrectTimeRange(r))
 }
 
+export function StringifyTimeRange(time: string): string {
+	const range = time.split('/').map(c => c.trim());
+	let times: string
+	try {
+		const timesArr = range.map(r => CorrectTimeRange(r))
+		times = timesArr.map(time => `${time[0].hour}:${time[0].minute}${time[0].AM ? 'AM' : 'PM'} - ${time[1].hour}:${time[1].minute}${time[1].AM ? 'AM' : 'PM'}`).join(' / ')
+	} catch (error) {
+		console.error(error.message)
+	}
+	return times
+}
+
 export function SplitDateTime(dateTime: string | Date): number[] {
     let date: number, time: number
     if(!dateTime) return [null, null]
@@ -160,19 +202,49 @@ export function SplitDateTime(dateTime: string | Date): number[] {
 	return [date, time]
 }
 
-export function GetInputTimeFormat(time: string): string {
-	const corrected = CorrectTime(time, {military: true})
-	const hour = Number(corrected.hour)
-	return (hour < 10 ? '0' + corrected.hour : corrected.hour)
-		+ ':' + corrected.minute
+export function SplitDateRange(
+	dates: string,
+	opts?: { asString?: boolean }
+): string[] | number[] {
+	if(typeof dates !== 'string' || !dates.includes(' - '))
+		throw new Error(`Invalid Date Range: ${dates}`)
+	const [ start, end ] = dates.split(' - ')
+	if(opts && opts.asString) return [ start, end ]
+	return [
+		new Date(start + ' 00:00:00').getTime(),
+		new Date(end + ' 00:00:00').getTime(),
+	]
 }
 
-export function GetFormattedTime() {
-	const date = new Date();
-	return `${date.getHours() + 1}:${date.getMinutes()}:${date.getMilliseconds()}`
+export function GetInputTimeFormat(time: string, opts?: { military: boolean }): string {
+	const corrected = opts && opts.military
+		? CorrectTime(time, {military: true})
+		: CorrectTime(time)
+	const hour = Number(corrected.hour)
+	if(opts && opts.military) {
+		return (hour < 10 ? '0' + corrected.hour : corrected.hour) + ':' + corrected.minute
+	}
+	return corrected.hour + ':' + corrected.minute + ' ' + (corrected.AM ? 'AM' : 'PM')
+}
+
+export function GetFormattedTime(date?: Date) {
+	date = date ? date : new Date();
+	return `${date.getHours() + 1}:${date.getMinutes()}:${date.getSeconds()}:${date.getMilliseconds()}`
+}
+
+export function GetFormattedDateTime(date?: Date) {
+	date = date ? date : new Date()
+	const time = date.toTimeString().substring(0, date.toTimeString().indexOf(' '))
+	return GetInputDateFormat(date) + ' ' + GetInputTimeFormat(time, { military: true })
 }
 
 export function ValidPhoneNumber(val: string): boolean {
 	const regex = /^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/
 	return regex.test(val)
+}
+
+export function mergeString(txt: string) {
+	return txt.toLowerCase().replace(/-/g, '').split(' ').map((word, i) =>
+		i !== 0 ? word.substring(0, 1).toUpperCase() + word.substring(1) : word
+	).join('')
 }

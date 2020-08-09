@@ -1,5 +1,4 @@
-import { RecordData, SelectChoices } from './Blocks'
-import { Mapping } from './Types'
+import { RecordData } from './Types'
 
 type SubSpace = {subSpace: string, areas: string[]}
 export type StudioSpace = {space: string, areas?: string[] | SubSpace}
@@ -447,55 +446,3 @@ export function stringifyStudios(studios: StudioSpace[], allStudioRecords: Recor
 		}
 	}).join(' ')
 }
-
-
-
-
-// export function groupStudioSpaces(record: RecordData, mappings: Mapping[]) {
-// 	const invalid = ['studioUsed']
-// 	const items = mappings.filter(map => map.fieldName.toLowerCase().includes('studio') && !invalid.includes(map.fieldName))
-// 		.map(map => ({id: map.fieldId, name: map.fieldName}))
-// 		.filter(map => record.fields[map.id] !== null)
-// 	const grouped = items.map(item => {
-// 		const space = item.name.toLowerCase().replace('studio', '')
-// 		const areas: string = (record.fields[item.id] as SelectChoices[])
-// 			.map((area: SelectChoices) => area.name).join(',')
-// 		return space.substring(0,1).toUpperCase() + space.substring(1) + areas
-// 	})
-// 	return grouped.join(' ')
-// }
-
-
-// export function FindConflicts(
-// 	events: RecordData[],
-// 	event: {
-// 		startDate: number
-// 		startTime: number
-// 		endDate?: number
-// 		endTime?: number
-// 	}
-// ): RecordData[] {
-// 	if(!events.length) return []
-// 	return events.filter(evt => {
-// 		const [startDate, startTime] = SplitDateTime(evt.fields.startDate as string)
-// 		const [endDate, endTime] = evt.fields.endDate ? SplitDateTime(evt.fields.endDate as string) : [ null, null ]
-// 		// Current Day is Event Start Date
-// 		if(startDate === event.startDate) {
-// 			// Current Day is also Event End Date
-// 			if(event.endDate && endDate === event.endDate) {
-// 				// Start is after end or end is before event start
-// 				if(event.startTime > endTime || event.endTime < startTime) return false
-// 			} else if(startTime > event.startTime) { // Event starts after current time
-// 				return false
-// 			} else if(endTime < event.startTime) {
-// 				return false
-// 			}
-// 		}
-// 		if(event.endDate && event.endDate === endDate) {
-// 			// Ends on the same day it started and current starts after events ends
-// 			if(event.startDate === endDate && event.startTime > endTime) return false
-//         }
-//         if(startDate !== event.startDate && (!event.endDate || event.endDate !== endDate)) return false
-// 		return true
-// 	})
-// }
