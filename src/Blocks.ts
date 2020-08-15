@@ -166,7 +166,9 @@ function handleSelects(
 	} else {
 		return typeof value === 'string'
 			? { name: value as string }
-			: { name: (value as SelectWriteOption).name }
+			: (value as SelectWriteOption).id
+				? { id: (value as SelectWriteOption).id  }
+				: { name: (value as SelectWriteOption).name  }
 		
 	}
 }
@@ -239,6 +241,7 @@ export function BuildNewRecord (
 						acc[map.fieldId] = value.map(r => ({id: r.id}))
 					}
 					break
+				case FieldType.SINGLE_COLLABORATOR:
 				case FieldType.SINGLE_SELECT:
 					value = fields0[key] as string
 					acc[map.fieldId] = handleSelects(value, false)
