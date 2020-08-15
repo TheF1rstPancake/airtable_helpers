@@ -248,3 +248,7 @@ export function mergeString(txt: string) {
 		i !== 0 ? word.substring(0, 1).toUpperCase() + word.substring(1) : word
 	).join('')
 }
+
+export function splitString(txt: string): string {
+	return txt.substring(0, 1).toUpperCase() + txt.split('').slice(1).map(char => /[A-Z]/.test(char) ? [' ', char.toUpperCase()] : char).flat().join('')
+}
