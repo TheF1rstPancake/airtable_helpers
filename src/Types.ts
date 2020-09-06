@@ -61,14 +61,7 @@ export interface UpdateRecord {
 	id: string, 
 	fields: RecordField
 }
-export interface RecordData {
-	id: string
-	name: string
-	tableId: string
-	fields: RecordField
-}
-
-export interface TypedData<T extends RecordField> {
+export interface RecordData<T extends RecordField> {
 	id: string
 	name: string
 	tableId: string

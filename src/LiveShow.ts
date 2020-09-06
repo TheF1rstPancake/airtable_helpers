@@ -1,4 +1,4 @@
-import { RecordData } from './Types'
+import { RecordData, RecordField } from './Types'
 
 type SubSpace = {subSpace: string, areas: string[]}
 export type StudioSpace = {space: string, areas?: string[] | SubSpace}
@@ -86,9 +86,9 @@ function getAreas(area: string, areas: string[]): string[] {
 	}).flat().filter(area => area)
 }
 
-export function splitGroupedStudioSpaces(
+export function splitGroupedStudioSpaces<T extends RecordField>(
 	grouped: string[],
-	studios: RecordData[]
+	studios: RecordData<T>[]
 ): StudioSpace[] {
 	let userStudios: StudioSpace[] = []
 	grouped.map(item => {
@@ -125,9 +125,9 @@ export function splitGroupedStudioSpaces(
 	return userStudios
 }
 
-export function validateStudioSpaces(
+export function validateStudioSpaces<T extends RecordField>(
 	userStudios: StudioSpace[],
-	studios: RecordData[]
+	studios: RecordData<T>[]
 ): boolean {
 	const issues = userStudios.filter(uStudio => {
 		const found = studios.find(studio => studio.name === uStudio.space)
@@ -157,8 +157,8 @@ export function hasStudioConflicts(studios0: StudioSpace[], studios1: StudioSpac
 	return conflict !== -1 ? true : false
 }
 
-export function getStudioSpaces(
-	studios: RecordData[],
+export function getStudioSpaces<T extends RecordField>(
+	studios: RecordData<T>[],
 	val: string
 ): StudioSpace[] {
 	try {
@@ -173,8 +173,8 @@ export function getStudioSpaces(
 	}
 }
 
-export function getAndValidateStudioSpaces(
-	studios: RecordData[],
+export function getAndValidateStudioSpaces<T extends RecordField>(
+	studios: RecordData<T>[],
 	val: string
 ): StudioSpace[] {
 	try {
@@ -189,8 +189,8 @@ export function getAndValidateStudioSpaces(
 }
 
 /** Returns  */
-export function getStandardLiveShowSpacesAsString(
-	records: RecordData[]
+export function getStandardLiveShowSpacesAsString<T extends RecordField>(
+	records: RecordData<T>[]
 ): string {
 	// Only return records with live show studio spaces
 	return records.filter(rec => rec.fields.isStudioSpace).map(studio => {
@@ -335,10 +335,10 @@ export function RemoveAreas(
 	return removed.areas ? removed : null
 }
 
-export function RemoveStudios(
+export function RemoveStudios<T extends RecordField>(
 	studios0: StudioSpace[],
 	studios1: StudioSpace[],
-	studios: RecordData[]
+	studios: RecordData<T>[]
 ): StudioSpace[] {
 	const removed: StudioSpace[] = []
 	studios0.forEach(studio0 => {
@@ -412,9 +412,9 @@ function stringifyNormalAreas(areas: string[], allAreas: string[]): string {
 	}, [] as string[]).join('')
 }
 
-function stringifyComplexAreas(
+function stringifyComplexAreas<T extends RecordField>(
 	subSpace: SubSpace,
-	subSpaceRecord: RecordData
+	subSpaceRecord: RecordData<T>
 ) {
 	const areas = subSpace.areas
 	const allAreas = (subSpaceRecord.fields.workspaceAreas as string).split(',')
@@ -424,7 +424,10 @@ function stringifyComplexAreas(
 }
 
 
-export function stringifyStudios(studios: StudioSpace[], allStudioRecords: RecordData[]): string {
+export function stringifyStudios<T extends RecordField>(
+	studios: StudioSpace[],
+	allStudioRecords: RecordData<T>[]
+): string {
 	/** Filter off air studios */
 	const studioRecords = allStudioRecords.filter(rec => rec.fields.isStudioSpace)
 	return studios.map((studio, i) => {
@@ -434,11 +437,11 @@ export function stringifyStudios(studios: StudioSpace[], allStudioRecords: Recor
 		const studioRecord = studioRecords.find(rec => rec.fields.workspace === studio.space)
 		if(Array.isArray(studio.areas)) { // Normal Area
 			const allAreas = (studioRecord.fields.workspaceAreas as string).split(',')
-			const compressedAreas = stringifyNormalAreas(studio.areas as string[], allAreas)
+			const compressedAreas = stringifyNormalAreas(studio.areas, allAreas)
 			return studio.space + compressedAreas
 		} else { // Complex area
 			const space = studio.space.substring(0,1)
-			const subSpace = studio.areas as SubSpace
+			const subSpace = studio.areas
 			const label = space + ':' + subSpace.subSpace
 			if(!subSpace.areas.length) return label
 			const compressedAreas = stringifyComplexAreas(subSpace, studioRecord)

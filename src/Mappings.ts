@@ -91,7 +91,14 @@ export function GetFieldIds(
 	}).map(([key, map]) => map.fieldId)
 }
 
-export function GetFieldsInTable(tableId: string, mappings: Mappings): Mapping[] {
+/** Returns all the mappings for a table
+ * @param tableId - The table you want the mappings for
+ * @param mappings - Standard block mappings
+ */
+export function GetFieldsInTable(
+	tableId: string,
+	mappings: Mappings
+): Mapping[] {
     const validTable = mappings[0][Object.keys(mappings[0])[0]].findIndex(map => map.tableId === tableId)
     if(validTable === -1) throw new Error(`Invalid table id ${tableId}`)
 	return mappings.map(map => {

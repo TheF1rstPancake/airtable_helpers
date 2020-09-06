@@ -10,8 +10,7 @@ import {
 	SelectWriteOption,
 	CustomField,
 	RecordData,
-	RemoteData,
-	TypedData
+	RemoteData
 } from './Types'
 import {
 	GetFormattedDate,
@@ -173,6 +172,12 @@ function handleSelects(
 	}
 }
 
+/** Creates the fields for the Airtable Blocks API to create or update a record
+ * @param field - The fields being created or updated
+ * @param mappings - The mappings for the table being updated
+ * @param options.noNull - Will not return keys with null values
+ * @param options.useFieldId - Uses the field id instead of the reference name
+ */
 export function BuildNewRecord (
 	field: RecordField | Record,
 	mappings: Mapping[],
@@ -277,14 +282,14 @@ export function BuildNewRecords(
 
 export function ConvertRecordMappings(
 	wantedTable: string,
-	record: RecordField,
+	fields: RecordField,
 	mappings: Mappings,
 	opts?: { isFieldId?: boolean }
 ): RecordField {
 	const newRecord: RecordField = {}
 	const key = opts && opts.isFieldId ? 'fieldId' : 'refName'
-    if(!record) throw new Error('Cannot convert mappings. No record present')
-	Object.entries(record).forEach(([fieldKey, fieldValue]) => {
+	if(!fields) throw new Error('Cannot convert mappings. No record present')
+	Object.entries(fields).forEach(([fieldKey, fieldValue]) => {
 		/** Get mapping group */
 		let mapping: Mapping[] = []
 		mappings.forEach(allMappings => {
@@ -300,51 +305,14 @@ export function ConvertRecordMappings(
 	return newRecord
 }
 
-export function GetRecordData(
-	base: Base,
-	records: Record[],
-	tableId: string,
-	fields?: string[],
-	opts?: {
-		ignoreLinkedFields?: boolean
-	}
-): RecordData[] {
-	if(!fields) {
-		const table = SelectTable(base, tableId)
-		fields = table.fields.map(f => f.id)
-	}
-	return records.map(r => {
-		const fieldValues: {[index: string]: any} = {}
-		fields.forEach(f => {
-			let value = r.getCellValue(f) as any
-			if(value === null) {
-				fieldValues[f] = null
-			} else if(Array.isArray(value)) {
-				fieldValues[f] = Array.from(value)
-			} else if(typeof value === 'boolean') {
-				fieldValues[f] = value
-			} else if(!isNaN(Number(value))) {
-				fieldValues[f] = Number(r.getCellValueAsString(f))
-			} else {
-                if(/[*#\\]/g.test(value)) { // String Includes special characters
-                    fieldValues[f] = value
-                } else {
-                    fieldValues[f] = r.getCellValueAsString(f)
-                }
-			}
-		})
-		return {
-			id: r.id,
-			name: r.name,
-			tableId,
-			fields: fieldValues
-		}
-	})
-}
-
-
-
-export function GetNamedRecordData<T>(
+/** Converts an Airtable Record into a Typed Record Data object
+ * @param tableId - Table id of the record
+ * @param records - Array of Airtable Records
+ * @param mappings - Standard Mappings
+ * @param opts.useIds - Returns fields with the field Id instead of the reference name
+ * @param opts.ignoreLinkedFields - Will not return fields that are linked fields
+ */
+export function GetNamedRecordData<T extends RecordField>(
 	tableId: string,
 	records: Record[],
 	mappings: Mappings,
@@ -353,7 +321,8 @@ export function GetNamedRecordData<T>(
 		useIds?: boolean,
 		ignoreLinkedFields?: boolean
 	}
-): {id: string, name: string, tableId: string, fields: T}[] {
+): RecordData<T>[] {
+	if(!records || !records.length) return null
 	const key = opts && opts.useIds ? 'fieldId' : 'refName'
 	if(!fields || !fields.length) fields = GetFieldsInTable(tableId, mappings)
 	return records.map(rec => {
@@ -373,6 +342,7 @@ export function GetNamedRecordData<T>(
 					fieldValues[f[key]] = value
 					break
 				case FieldType.SINGLE_SELECT:
+				case FieldType.SINGLE_COLLABORATOR:
 					fieldValues[f[key]] = value
 					break
 				case FieldType.MULTIPLE_RECORD_LINKS:
@@ -429,10 +399,10 @@ export function GetRemoteRecordData(
 }
 
 export function GroupByProp<T extends RecordField>(
-	records: TypedData<T>[],
+	records: RecordData<T>[],
 	prop: string
-): {[index: string]: TypedData<T>[]} {
-	const group: {[index: string]: TypedData<T>[]} = {}
+): {[index: string]: RecordData<T>[]} {
+	const group: {[index: string]: RecordData<T>[]} = {}
 	if(!records || !records.length) return group
 	records.forEach(r => {
 		const type = Object.keys(r.fields).find(f => f === prop)
@@ -470,4 +440,21 @@ export async function CreateChangeRecord(
 	change[extracted.changeRecord.fieldId] = `**${GetFormattedDate(date)} @ ${GetFormattedTime()}**\n**User**: ${user.name ? user.name : user.id}\n${message}`
 	const record = BuildNewRecord(change, mappings, { useFieldId: true, noNull: true })
 	return await CreateRecords(base, [{fields: record}], tableId)
-} 
+}
+
+export function sortByRecordName<T extends RecordField>(
+	records: RecordData<T>[],
+	key?: string
+): {id: string, name: string, tableId: string, fields: T}[] {
+	if(!records || !records.length) return
+	return records.sort((a,b) => {
+		if(key) {
+			if(a.fields[key] < b.fields[key]) return -1 
+			if(a.fields[key] > b.fields[key]) return 1 
+		} else {
+			if(a.name < b.name) return -1 
+			if(a.name > b.name) return 1 
+		}
+		return 0
+	})
+}
