@@ -32,7 +32,7 @@ export function FindNearestDay(d: Date, day: number, mid?: number) {
 	return d;
 }
 
-export function FindDay(d: Date, day: number, direction: boolean) {
+export function FindDay(d: Date, day: number, direction: boolean): Date {
 	if(isNaN(d.getTime())) throw new Error('Invalid Date')
 	if(!direction) {
 		while(d.getDay() !== day) {
@@ -44,6 +44,14 @@ export function FindDay(d: Date, day: number, direction: boolean) {
 		}
 	}
 	return d;
+}
+
+export function getWeekDates(date: string | Date): string[] {
+	if(typeof date === 'string') date = new Date(date + ' 00:00:00')
+	const dates: string[] = []
+	dates.push(GetFormattedDate(FindDay(date, 0, false)))
+	dates.push(GetFormattedDate(FindDay(date, 6, true)))
+	return dates
 }
 
 export function GetQuarterDates(
@@ -192,12 +200,14 @@ export function SplitDateTime(dateTime: string | Date): number[] {
     let date: number, time: number
     if(!dateTime) return [null, null]
     if(typeof dateTime === 'string') {
-        const raw = dateTime.split(' ')
-        date = new Date(raw[0] + ' 00:00:00').getTime()
-        time = Number(CorrectTime(raw[1], { military: true }).hour)
+		const rawDate = dateTime.slice(0, dateTime.indexOf(' '))
+		const rawTime = dateTime.slice(dateTime.indexOf(' ') + 1)
+		const correctedTime = CorrectTime(rawTime, { military: true })
+		date = new Date(rawDate + ' 00:00:00').getTime()
+        time = Number(correctedTime.hour) + (Number(correctedTime.minute) / 60)
     } else {
         date = new Date(GetInputDateFormat(dateTime) + ' 00:00:00').getTime()
-        time = dateTime.getHours()
+        time = dateTime.getHours() + ( dateTime.getMinutes() / 60 )
     }
 	return [date, time]
 }
@@ -217,6 +227,7 @@ export function SplitDateRange(
 }
 
 export function GetInputTimeFormat(time: string, opts?: { military: boolean }): string {
+	if(!time) return null
 	const corrected = opts && opts.military
 		? CorrectTime(time, {military: true})
 		: CorrectTime(time)
