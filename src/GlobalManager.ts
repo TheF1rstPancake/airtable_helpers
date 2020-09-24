@@ -8,6 +8,7 @@ export interface GlobalManagerClass {
 	validate(): void
 	becomeManager(): Promise<void>
 	tryToBecomeManager(): Promise<void>
+	setManagerIsBusy(): Promise<() => void>
 	releaseManager(): Promise<void>
 	resetStatus(): Promise<void>
 }
@@ -33,6 +34,7 @@ export class GlobalManager implements GlobalManagerClass {
 		window.addEventListener('beforeunload', () =>
 			this.releaseManager()
 		)
+		this.init = false
 		this.initialize()
 	}
 
@@ -47,23 +49,25 @@ export class GlobalManager implements GlobalManagerClass {
 		return new Promise(async (resolve, reject) => {
 			if(this.globalConfig.get(this.globalKey) === this.globalId) return
 			this.loading = true
-			if(this.globalConfig.get('active') !== false)
-				await this.globalConfig.setAsync('active', false)
+			if(this.globalConfig.get('active') !== 'false')
+				await this.globalConfig.setAsync('active', 'false')
 			/** Allow the manager to reset the status if they are active */
 			setTimeout(async () => {
-				const value = this.globalConfig.get('active') as boolean
-				if(value === false) await this.becomeManager()
+				const value = this.globalConfig.get('active') as string
+				console.log('VALUE', value)
+				if(value === 'false' || !value) await this.becomeManager()
 				this.loading = false
-				resolve()
-			}, 1000)
+				return resolve()
+			}, 2000)
 		})
 	}
 
 	/** Ensures this block is the manager */
 	validate() {
 		if(this.globalId !== this.globalConfig.get(this.globalKey)) {
+			console.log('Changed')
 			this.isManager = false
-			this.triggerUpdate(this.isManager)
+			this.triggerUpdate?.(this.isManager)
 		}
 	}
 
@@ -78,16 +82,29 @@ export class GlobalManager implements GlobalManagerClass {
 			await this.globalConfig.setPathsAsync([{
 				path: [this.globalKey], value: this.globalId
 			}, {
-				path: ['active'], value: true
+				path: ['active'], value: 'true'
 			}])
-			this.triggerUpdate(this.isManager)
+			this.triggerUpdate?.(this.isManager)
 		}
 	}
 
 	/** Becomes the manager if no one else is */
 	async tryToBecomeManager(): Promise<void> {
-		if(this.loading || this.released) return
-		await this.checkStatus()
+		return new Promise((resolve, reject) => {
+			if(this.loading || this.released) return resolve()
+			setTimeout(async () => {
+				console.log(this.globalConfig.get('busy'))
+				if(this.globalConfig.get('busy')) return resolve()
+				await this.checkStatus()
+				return resolve()
+			}, 1000)
+		})
+	}
+
+	async setManagerIsBusy(): Promise<() => void> {
+		if(!this.isManager) return
+		await this.globalConfig.setAsync('busy', true)
+		return () => this.globalConfig.setAsync('busy', false)
 	}
 
 	/** Sets the managerId in the Global Data to null
@@ -105,9 +122,11 @@ export class GlobalManager implements GlobalManagerClass {
 	 * 	Allows the other blocks to know that there is a user acting as the manager
 	 */
 	async resetStatus(): Promise<void> {
-		const value = this.globalConfig.get('active') as boolean
-		if(this.isManager && value === false)
-			await this.globalConfig.setAsync('active', true)
+		if(this.loading) return
+		const value = this.globalConfig.get('active') as string
+		console.log('Reset STatus', value, this.isManager)
+		if(this.isManager && value === 'false' || !value)
+			await this.globalConfig.setAsync('active', 'true')
 	}
 
 	get status() { return this.isManager }
