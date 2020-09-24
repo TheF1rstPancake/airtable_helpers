@@ -25,14 +25,14 @@ export function UpdateComments(
 
 /** Checks if an hour is withing a time range */
 export function isHourWithinTime(
-	startdate: number,
+	startDate: number,
 	startTime: number,
 	endDate: number,
 	endTime: number,
 	showDate: number,
 	showTime: number
 ): boolean {
-	if(showDate === startdate) {
+	if(showDate === startDate) {
 		if(showDate === endDate) {
 			if(showTime >= startTime && showTime <= endTime) return true
 		} else {
@@ -40,6 +40,8 @@ export function isHourWithinTime(
 		}
 	} else if(showDate === endDate) {
 		if(showTime <= endTime) return true
+	} else if(showDate > startDate && showDate < endDate) {
+		return true
 	}
 	return false
 }
