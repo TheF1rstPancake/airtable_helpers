@@ -1,3 +1,5 @@
+import { LockedRecordField, RecordId } from './types/Record'
+
 export * from '@airtable/blocks/models'
 export * from '@airtable/blocks/types'
 
@@ -7,9 +9,8 @@ export * from '@airtable/blocks/types'
 export interface MappingDefinition {
 	bases?: string[]
 	tables: string[]
-	remotes: string[]
 	fields: string[]
-} 
+}
 export interface MappingTables {
 	[index: string]: string
 }
@@ -21,8 +22,8 @@ export interface Mapping {
 	refName?: string
 }
 
-export type Mappings = {[index: string]: Mapping[]}[]
-export type ExtractedMappings = {[index: string]: Mapping}
+export type Mappings = { [index: string]: Mapping[] }[]
+export type ExtractedMappings = { [index: string]: Mapping }
 
 export interface BlockMappings {
 	bases?: {
@@ -53,16 +54,23 @@ export interface QuerySorts {
 	direction?: 'asc' | 'desc'
 }
 
-export type CustomField = string | string[] | number | boolean | Date | SelectWriteOption | SelectWriteOption[]
+export type CustomField =
+	| string
+	| string[]
+	| number
+	| boolean
+	| Date
+	| SelectWriteOption
+	| SelectWriteOption[]
 export interface RecordField {
 	[index: string]: CustomField
 }
 export interface UpdateRecord {
-	id: string, 
-	fields: RecordField
+	id: RecordId
+	fields: LockedRecordField
 }
 export interface RecordData<T extends RecordField> {
-	id: string
+	id: RecordId
 	name: string
 	tableId: string
 	fields: T
@@ -70,7 +78,7 @@ export interface RecordData<T extends RecordField> {
 
 export interface RemoteData {
 	id: string
-	tableId: string,
+	tableId: string
 	fields: RecordField
 	dateCreates?: string
 }
