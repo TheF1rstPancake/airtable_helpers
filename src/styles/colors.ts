@@ -13,7 +13,7 @@ export enum Colors {
 	merlot = '#960051',
 	pink = '#C6007E',
 	// Not HSN
-	purple='#7C39ED'
+	purple = '#7C39ED',
 }
 
 export enum AirtableColors {
@@ -36,10 +36,5 @@ export enum AirtableColors {
 	purple = '#8B46FF',
 	lightPurple = '#EDE2FE',
 	grey = '#666666',
-	lightGrey = '#EEEEEE'
-}
-
-export enum Font {
-	fontTitleSize = '2em',
-	fontBodySize = '1.5em'
+	lightGrey = '#EEEEEE',
 }

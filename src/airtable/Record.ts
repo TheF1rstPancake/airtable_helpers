@@ -24,7 +24,7 @@ import {
 import { Tables } from './Table'
 import { Mappings } from './Mappings'
 import { DateConverter } from '../utils/Date'
-import { UpdateRecord } from '../Types'
+import { UpdateRecord } from '../types/Record'
 
 import { expandRecord, expandRecordList } from '@airtable/blocks/ui'
 
