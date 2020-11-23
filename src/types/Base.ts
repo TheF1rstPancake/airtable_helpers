@@ -1,8 +1,8 @@
-export { Base } from '@airtable/blocks/models'
+//export type { Base } from '@airtable/blocks/models'
 import { BaseId, GlobalConfigValue } from '@airtable/blocks/types'
-import { TableId } from './Table'
+import { TableId } from '@airtable/blocks/types'
 
-export { BaseId, GlobalConfigValue }
+//export { BaseId, GlobalConfigValue }
 
 export interface MappingDefinition {
 	bases?: string[]

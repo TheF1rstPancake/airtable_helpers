@@ -1,18 +1,18 @@
-import { Base, Mappings as MappingsDef, Mapping } from '../types/Base'
-import { TableId, Table, ViewId, View, FieldId, Field } from '../types/Table'
+import { Mappings as MappingsDef, Mapping } from '../types/Base'
 import {
 	RecordField,
-	RecordId,
 	UpdateRecord,
-	Record,
 	RecordData,
 	LockedRecordField,
 	QueryOpts,
 } from '../types/Record'
 
+
 import { Mappings } from './Mappings'
 import { Tables } from './Table'
 import { Records } from './Record'
+import {Base, Record, Table, Field, View, FieldType} from '@airtable/blocks/models';
+import { TableId, ViewId, FieldId, 	RecordId} from '@airtable/blocks/types';
 
 interface AirtableInterface {
 	convertRecordFieldsToNames<T extends RecordField>(

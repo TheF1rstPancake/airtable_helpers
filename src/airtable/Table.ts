@@ -1,5 +1,5 @@
-import { Base } from '../types/Base'
-import { Table, TableId, ViewId, View, Field, FieldId } from '../types/Table'
+import {Base, Table, Field, View, FieldType} from '@airtable/blocks/models';
+import { FieldId, TableId, ViewId } from '@airtable/blocks/types'
 
 function selectTable(base: Base, tableId: TableId): Table {
 	const table = base.getTableByIdIfExists(tableId)

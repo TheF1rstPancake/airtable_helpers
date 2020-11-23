@@ -28,8 +28,8 @@
 		"webpack-node-externals": "^1.7.2"
 	},
 	"dependencies": {
-		"@airtable/blocks": "latest",
 		"react": "^16.13.1",
-		"react-dom": "^16.13.1"
+		"react-dom": "^16.13.1",
+		"@airtable/blocks": "^1.2.0"
 	}
 }

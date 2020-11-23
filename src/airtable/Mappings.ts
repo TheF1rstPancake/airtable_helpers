@@ -1,6 +1,6 @@
 import { Mapping, Mappings as MappingsDef } from '../types/Base'
-import { TableId } from '../types/Table'
 import { formatObjectKey } from '../utils/index'
+import {TableId} from '@airtable/blocks/types';
 
 function getMappingsByRefrenceName(
 	tableId: TableId,

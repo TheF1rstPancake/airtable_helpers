@@ -1,25 +1,28 @@
-import { Base, Mapping, Mappings as MappingsDef } from '../types/Base'
+import { Mapping, Mappings as MappingsDef } from '../types/Base'
 import {
-	TableId,
-	ViewId,
-	Table,
-	View,
-	FieldType,
 	LinkedRecord,
 	SelectOption,
 } from '../types/Table'
 import {
-	LinkedRecordsQueryResult,
-	RecordQueryResult,
-	TableOrViewQueryResult,
 	QueryOpts,
-	Record,
 	RecordData,
 	CustomField,
 	RecordField,
 	LockedRecordField,
-	RecordId,
 } from '../types/Record'
+
+import {
+  Base,
+  Record,
+	RecordQueryResult,
+	TableOrViewQueryResult,
+  LinkedRecordsQueryResult, 
+  Table, 
+  Field, 
+  View, 
+  FieldType
+} from '@airtable/blocks/models'; 
+import { FieldId, TableId, ViewId, RecordId } from '@airtable/blocks/types'
 
 import { Tables } from './Table'
 import { Mappings } from './Mappings'

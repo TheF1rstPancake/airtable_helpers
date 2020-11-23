@@ -1,12 +1,13 @@
 import { LinkedRecord, SelectOption, QuerySorts } from './Table'
 
-export {
+/*export {
 	Record,
 	RecordQueryResult,
 	TableOrViewQueryResult,
 	LinkedRecordsQueryResult,
-} from '@airtable/blocks/models'
-export { RecordId, Color, RecordActionData } from '@airtable/blocks/types'
+} from '@airtable/blocks/models'*/ 
+
+//export { RecordId, Color, RecordActionData } from '@airtable/blocks/types'
 
 export interface QueryOpts {
 	fields?: string[]
